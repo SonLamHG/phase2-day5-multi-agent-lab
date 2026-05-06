@@ -158,7 +158,7 @@ Ghi `reports/benchmark_report.md` và `reports/traces/*.json`.
 | # | Item | Path |
 |---|---|---|
 | 1 | GitHub repo cá nhân | this repo |
-| 2 | Trace screenshot / link | LangSmith project `multi-agent-research-lab` + JSON ở `reports/traces/*.json` (gitignored) |
+| 2 | Trace screenshot / link | LangSmith UI: [`reports/langsmith_trace.png`](reports/langsmith_trace.png); JSON spans tại `reports/traces/*.json` (gitignored) |
 | 3 | Benchmark single vs multi-agent | [`reports/benchmark_report.md`](reports/benchmark_report.md) |
 | 4 | Failure mode + cách fix | [`reports/failure_modes.md`](reports/failure_modes.md) |
 | 5 | Exit ticket (multi-agent yes/no) | [`reports/exit_ticket.md`](reports/exit_ticket.md) |

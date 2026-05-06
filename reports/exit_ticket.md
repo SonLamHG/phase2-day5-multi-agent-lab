@@ -2,7 +2,12 @@
 
 Both answers are grounded in the live benchmark numbers in
 [`benchmark_report.md`](benchmark_report.md): 3 queries × {baseline, multi-agent}
-on gpt-5-nano + Tavily.
+on gpt-5-nano + Tavily. The full LangSmith waterfall for the
+"Summarize production guardrails for LLM agents" run is captured in
+[`langsmith_trace.png`](langsmith_trace.png) — total 17.80s split as
+researcher 5.37s → analyst 3.14s → writer 7.13s → critic 2.14s.
+
+![LangSmith trace waterfall](langsmith_trace.png)
 
 ## 1. Case nào NÊN dùng multi-agent?
 
