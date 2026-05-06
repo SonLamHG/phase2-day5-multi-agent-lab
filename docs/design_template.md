@@ -1,38 +1,99 @@
-# Design Template
+# Design — Multi-Agent Research System
 
 ## Problem
 
-TODO(student): Viết task cụ thể hệ thống cần xử lý.
+Build a research assistant that answers long-form queries with cited sources. The system must:
+
+- Retrieve relevant information from the web (Tavily) on demand.
+- Produce a grounded, cited answer that respects an `audience` parameter.
+- Be observable (token usage, route history, JSON trace, optional LangSmith).
+- Be benchmarkable against a single-agent baseline using the same query set.
 
 ## Why multi-agent?
 
-TODO(student): Giải thích vì sao single-agent chưa đủ.
+A single LLM call must simultaneously search-summarise, reason about claims, and write
+the final answer. That all-in-one call is fast and cheap but tends to:
+
+- Cite sources sloppily (citations get dropped during compression).
+- Smear reasoning gaps inside fluent prose.
+- Be hard to debug — there is no record of what the model "knew" vs "wrote".
+
+Splitting into Researcher → Analyst → Writer lets each step have a tighter system prompt,
+a smaller context window, and a typed handoff (`research_notes`, `analysis_notes`,
+`final_answer`). The supervisor enforces order and stop conditions; the optional Critic
+adds a verification pass.
 
 ## Agent roles
 
 | Agent | Responsibility | Input | Output | Failure mode |
 |---|---|---|---|---|
-| Supervisor | TODO | TODO | TODO | TODO |
-| Researcher | TODO | TODO | TODO | TODO |
-| Analyst | TODO | TODO | TODO | TODO |
-| Writer | TODO | TODO | TODO | TODO |
+| Supervisor | Route to next worker; enforce `max_iterations`; trigger writer fallback | `ResearchState` | `Route` decision + `route_history` entry | Endless loop if routing rule has a hole — guarded by `max_iterations` |
+| Researcher | Fetch sources via Tavily, write notes with `[n]` citations | query | `state.sources`, `state.research_notes` | Tavily down → `AgentExecutionError`; falls back to mock corpus when allowed |
+| Analyst | Extract claims, contradictions, evidence gaps | `research_notes` | `state.analysis_notes` | Hallucinates new facts → mitigated by strict prompt + analyst seeing notes only |
+| Writer | Synthesise final answer with `## References` | notes + analysis + sources | `state.final_answer` | Drops citations → critic catches it |
+| Critic *(bonus)* | Fact-check final answer against sources | answer + sources | `state.critic_report`, `verdict` metadata | Over-strict (false fail) → kept advisory; not a re-loop trigger by default |
 
 ## Shared state
 
-TODO(student): Liệt kê fields và lý do cần field đó.
+`ResearchState` (Pydantic) carries:
+
+- `request: ResearchQuery` — query, audience, max_sources.
+- `iteration`, `route_history` — supervisor accounting and trace breadcrumbs.
+- `sources`, `research_notes`, `analysis_notes`, `final_answer`, `critic_report` — agent outputs.
+- `agent_results: list[AgentResult]` — per-agent output + token/cost metadata.
+- `trace: list[dict]` — lightweight in-process span log.
+- `errors: list[str]` — recoverable error breadcrumbs (e.g. `supervisor: hit max_iterations`).
+
+Every field is *necessary* for handoff: the supervisor inspects `sources`/`research_notes`/
+`analysis_notes`/`final_answer`/`critic_report` to choose the next route. Token counts on
+`agent_results` make the benchmark possible without instrumenting agents twice.
 
 ## Routing policy
 
-TODO(student): Vẽ hoặc mô tả graph.
+```
+supervisor:
+  if iteration >= max_iterations:
+      return WRITER if (research_notes or sources) else DONE  # fallback
+  if not sources or not research_notes: -> RESEARCHER
+  if not analysis_notes:                -> ANALYST
+  if not final_answer:                  -> WRITER
+  if enable_critic and not critic_report: -> CRITIC
+  else                                  -> DONE
+```
+
+Implemented in `agents/supervisor.py::SupervisorAgent.decide`. Wired into LangGraph as a
+conditional edge; each worker returns to the supervisor.
 
 ## Guardrails
 
-- Max iterations:
-- Timeout:
-- Retry:
-- Fallback:
-- Validation:
+- **Max iterations**: `Settings.max_iterations` (default 6); supervisor returns DONE or a
+  writer fallback when the limit is hit.
+- **Timeout**: per-LLM-call via `OPENAI_TIMEOUT` (default 30s); the OpenAI SDK enforces it.
+- **Retry**: `tenacity` exponential backoff on the LLM call (3 attempts).
+- **Fallback**: supervisor forces a writer pass with whatever data is present, so the user
+  always sees *something* even after errors.
+- **Validation**: every payload between agents is a Pydantic model
+  (`ResearchState`, `AgentResult`, `SourceDocument`, `BenchmarkMetrics`).
 
 ## Benchmark plan
 
-TODO(student): Liệt kê query, metric, expected outcome.
+CLI `benchmark` runs three default queries (configurable) through both runners:
+
+| Metric | Source |
+|---|---|
+| Latency | wall-clock per run |
+| Tokens (in/out) | `state.total_tokens()` from `AgentResult.metadata` |
+| Cost (USD) | `state.total_cost_usd()` using `_COST_PER_MTOKENS` table |
+| Citation coverage | fraction of `state.sources` that the answer cites with `[n]` |
+| Iterations | `state.iteration` |
+| Errors | `len(state.errors)` |
+| Quality (0–10) | filled in manually after peer review |
+
+Output: `reports/benchmark_report.md` (generated by `evaluation/report.py`).
+
+## Failure modes & mitigations
+
+- **Tavily quota exhausted** → `AgentExecutionError`; rerun with `MockSearchClient`.
+- **gpt-5-nano refuses temperature** → handled in `OpenAIClient._is_gpt5()`.
+- **Critic flags hallucination** → recorded in `state.critic_report`; today this is advisory.
+  Future work: have supervisor loop back to researcher if `verdict == "fail"`.
