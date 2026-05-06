@@ -23,7 +23,8 @@ def _mock_llm() -> MockLLMClient:
             ),
             "Write the final answer": (
                 "Multi-agent systems combine specialised roles to handle research workflows. "
-                "GraphRAG [1] uses graphs for retrieval; agent design [2] favours simple workflows.\n\n"
+                "GraphRAG [1] uses graphs for retrieval; "
+                "agent design [2] favours simple workflows.\n\n"
                 "## References\n[1] GraphRAG — https://example.com/graphrag-overview\n"
                 "[2] Building effective agents — https://example.com/anthropic-agents"
             ),

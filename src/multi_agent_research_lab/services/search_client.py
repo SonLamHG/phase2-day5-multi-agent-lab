@@ -27,7 +27,7 @@ class TavilySearchClient:
             raise AgentExecutionError(
                 "TAVILY_API_KEY is not set. Add it to .env to use TavilySearchClient."
             )
-        from tavily import TavilyClient
+        from tavily import TavilyClient  # type: ignore[import-untyped]
 
         self._client = TavilyClient(api_key=self._settings.tavily_api_key)
 
@@ -130,6 +130,4 @@ def build_default_search_client(*, allow_mock: bool = False) -> SearchClient:
     if allow_mock:
         logger.warning("TAVILY_API_KEY missing — falling back to MockSearchClient.")
         return MockSearchClient()
-    raise AgentExecutionError(
-        "TAVILY_API_KEY missing. Set it in .env or pass allow_mock=True."
-    )
+    raise AgentExecutionError("TAVILY_API_KEY missing. Set it in .env or pass allow_mock=True.")

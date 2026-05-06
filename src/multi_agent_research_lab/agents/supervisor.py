@@ -54,9 +54,7 @@ class SupervisorAgent(BaseAgent):
             if not state.final_answer and (state.research_notes or state.sources):
                 # Force a writer fallback to produce *something* before stopping.
                 return Route.WRITER
-            state.errors.append(
-                f"supervisor: hit max_iterations={self._max_iterations}, stopping."
-            )
+            state.errors.append(f"supervisor: hit max_iterations={self._max_iterations}, stopping.")
             return Route.DONE
 
         if not state.sources or not state.research_notes:

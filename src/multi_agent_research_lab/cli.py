@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -11,15 +12,6 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-
-# Windows console defaults to cp1252 and chokes on Unicode arrows / em dashes
-# emitted by Rich and the LLM. Force UTF-8 before instantiating Console.
-for _stream in (sys.stdout, sys.stderr):
-    if hasattr(_stream, "reconfigure"):
-        try:
-            _stream.reconfigure(encoding="utf-8")
-        except (AttributeError, OSError):
-            pass
 
 from multi_agent_research_lab.baseline import SingleAgentBaseline
 from multi_agent_research_lab.core.config import get_settings
@@ -31,6 +23,7 @@ from multi_agent_research_lab.evaluation.report import render_markdown_report
 from multi_agent_research_lab.graph.workflow import MultiAgentWorkflow
 from multi_agent_research_lab.observability.logging import configure_logging
 from multi_agent_research_lab.observability.tracing import (
+    TraceRecorder,
     configure_langsmith,
     trace_recorder,
     write_trace_json,
@@ -41,13 +34,26 @@ app = typer.Typer(help="Multi-Agent Research Lab CLI")
 console = Console()
 
 
+def _force_utf8_stdout() -> None:
+    # Windows console defaults to cp1252 and chokes on the Unicode arrows /
+    # em dashes emitted by Rich and the LLM. Force UTF-8 before any Console
+    # call. No-op on systems whose streams are already UTF-8.
+    import contextlib
+
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            with contextlib.suppress(AttributeError, OSError):
+                stream.reconfigure(encoding="utf-8")
+
+
 def _init() -> None:
+    _force_utf8_stdout()
     settings = get_settings()
     configure_logging(settings.log_level)
     configure_langsmith()
 
 
-def _persist_trace(state: ResearchState, recorder, run_label: str) -> Path:
+def _persist_trace(state: ResearchState, recorder: TraceRecorder, run_label: str) -> Path:
     store = LocalArtifactStore()
     timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
     rel = f"traces/{run_label}-{timestamp}.json"
@@ -75,7 +81,9 @@ def _summary_table(state: ResearchState, label: str) -> Table:
 @app.command()
 def baseline(
     query: Annotated[str, typer.Option("--query", "-q", help="Research query")],
-    audience: Annotated[str, typer.Option("--audience", help="Target audience")] = "technical learners",
+    audience: Annotated[
+        str, typer.Option("--audience", help="Target audience")
+    ] = "technical learners",
     max_sources: Annotated[int, typer.Option("--max-sources", help="Top-K sources to fetch")] = 5,
 ) -> None:
     """Run the single-agent baseline (search + 1 LLM call)."""
@@ -99,9 +107,13 @@ def baseline(
 @app.command("multi-agent")
 def multi_agent(
     query: Annotated[str, typer.Option("--query", "-q", help="Research query")],
-    audience: Annotated[str, typer.Option("--audience", help="Target audience")] = "technical learners",
+    audience: Annotated[
+        str, typer.Option("--audience", help="Target audience")
+    ] = "technical learners",
     max_sources: Annotated[int, typer.Option("--max-sources", help="Top-K sources to fetch")] = 5,
-    enable_critic: Annotated[bool, typer.Option("--critic/--no-critic", help="Enable critic agent")] = True,
+    enable_critic: Annotated[
+        bool, typer.Option("--critic/--no-critic", help="Enable critic agent")
+    ] = True,
 ) -> None:
     """Run the multi-agent workflow (Supervisor + Researcher + Analyst + Writer + Critic)."""
 
@@ -131,8 +143,12 @@ def benchmark(
     ] = None,
     audience: Annotated[str, typer.Option("--audience")] = "technical learners",
     max_sources: Annotated[int, typer.Option("--max-sources")] = 5,
-    no_critic: Annotated[bool, typer.Option("--no-critic", help="Disable critic in multi-agent run")] = False,
-    output: Annotated[Path, typer.Option("--output", help="Markdown report path")] = Path("reports/benchmark_report.md"),
+    no_critic: Annotated[
+        bool, typer.Option("--no-critic", help="Disable critic in multi-agent run")
+    ] = False,
+    output: Annotated[Path, typer.Option("--output", help="Markdown report path")] = Path(
+        "reports/benchmark_report.md"
+    ),
 ) -> None:
     """Run baseline and multi-agent across queries and emit a markdown report."""
 
@@ -166,7 +182,9 @@ def benchmark(
     console.print(Panel.fit(report, title=f"Benchmark Report — {output}"))
 
 
-def _make_baseline_runner(audience: str, max_sources: int):
+def _make_baseline_runner(
+    audience: str, max_sources: int
+) -> Callable[[str], ResearchState]:
     runner = SingleAgentBaseline()
 
     def call(query: str) -> ResearchState:
@@ -178,7 +196,9 @@ def _make_baseline_runner(audience: str, max_sources: int):
     return call
 
 
-def _make_multi_runner(audience: str, max_sources: int, enable_critic: bool):
+def _make_multi_runner(
+    audience: str, max_sources: int, enable_critic: bool
+) -> Callable[[str], ResearchState]:
     workflow = MultiAgentWorkflow(enable_critic=enable_critic)
 
     def call(query: str) -> ResearchState:

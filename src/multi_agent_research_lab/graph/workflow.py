@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from langgraph.graph import END, StateGraph
@@ -55,13 +56,15 @@ class MultiAgentWorkflow:
         self._graph = self.build()
 
     def build(self) -> Any:
-        graph: StateGraph = StateGraph(ResearchState)
+        graph: StateGraph[ResearchState] = StateGraph(ResearchState)
 
-        graph.add_node("supervisor", self._wrap(self._supervisor.run))
-        graph.add_node("researcher", self._wrap(self._researcher.run))
-        graph.add_node("analyst", self._wrap(self._analyst.run))
-        graph.add_node("writer", self._wrap(self._writer.run))
-        graph.add_node("critic", self._wrap(self._critic.run))
+        # LangGraph's add_node overloads don't expose the simple Callable signature
+        # cleanly; the runtime accepts Callable[[State], State] just fine.
+        graph.add_node("supervisor", self._wrap(self._supervisor.run))  # type: ignore[call-overload]
+        graph.add_node("researcher", self._wrap(self._researcher.run))  # type: ignore[call-overload]
+        graph.add_node("analyst", self._wrap(self._analyst.run))  # type: ignore[call-overload]
+        graph.add_node("writer", self._wrap(self._writer.run))  # type: ignore[call-overload]
+        graph.add_node("critic", self._wrap(self._critic.run))  # type: ignore[call-overload]
 
         graph.set_entry_point("supervisor")
 
@@ -103,7 +106,9 @@ class MultiAgentWorkflow:
         raise AgentExecutionError(f"unexpected workflow output type: {type(raw)!r}")
 
     @staticmethod
-    def _wrap(func):
+    def _wrap(
+        func: Callable[[ResearchState], ResearchState],
+    ) -> Callable[[ResearchState], ResearchState]:
         def runner(state: ResearchState) -> ResearchState:
             return func(state)
 

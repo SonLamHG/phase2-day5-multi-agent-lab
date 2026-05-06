@@ -19,11 +19,15 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-nano", validation_alias="OPENAI_MODEL")
-    openai_request_timeout: float = Field(default=30.0, ge=5.0, le=300.0, validation_alias="OPENAI_TIMEOUT")
+    openai_request_timeout: float = Field(
+        default=30.0, ge=5.0, le=300.0, validation_alias="OPENAI_TIMEOUT"
+    )
     openai_max_retries: int = Field(default=2, ge=0, le=5, validation_alias="OPENAI_MAX_RETRIES")
 
     langsmith_api_key: str | None = Field(default=None, validation_alias="LANGSMITH_API_KEY")
-    langsmith_project: str = Field(default="multi-agent-research-lab", validation_alias="LANGSMITH_PROJECT")
+    langsmith_project: str = Field(
+        default="multi-agent-research-lab", validation_alias="LANGSMITH_PROJECT"
+    )
     langsmith_tracing: bool = Field(default=False, validation_alias="LANGSMITH_TRACING")
 
     tavily_api_key: str | None = Field(default=None, validation_alias="TAVILY_API_KEY")

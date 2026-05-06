@@ -144,7 +144,9 @@ class OpenAIClient:
                 kwargs["max_tokens"] = max_tokens
 
         try:
-            response = self._client.chat.completions.create(**kwargs)
+            # The kwargs shape is built dynamically per model family;
+            # the OpenAI SDK overloads are too strict for that pattern.
+            response = self._client.chat.completions.create(**kwargs)  # type: ignore[call-overload]
         except APIError as exc:
             logger.warning("OpenAI API error (will retry if attempts remain): %s", exc)
             raise

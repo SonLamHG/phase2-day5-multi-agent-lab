@@ -17,7 +17,7 @@ def render_markdown_report(metrics: list[BenchmarkMetrics]) -> str:
         "",
         "## Per-run results",
         "",
-        "| Run | Query | Latency (s) | Tokens (in/out) | Cost (USD) | Citation cov. | Iters | Errors | Notes |",
+        "| Run | Query | Latency (s) | Tokens (in/out) | Cost (USD) | Citation cov. | Iters | Errors | Notes |",  # noqa: E501
         "|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for m in metrics:
@@ -52,17 +52,21 @@ def _aggregate_table(metrics: list[BenchmarkMetrics]) -> str:
         cov_str = "" if avg_cov is None else f"{avg_cov:.2f}"
         errors = sum(m.error_count for m in items)
         out.append(
-            f"| {name} | {avg_latency:.2f} | {total_tokens} | {total_cost:.6f} | {cov_str} | {errors} |"
+            f"| {name} | {avg_latency:.2f} | {total_tokens} | {total_cost:.6f} | "
+            f"{cov_str} | {errors} |"
         )
     return "\n".join(out)
 
 
 def _reading_guide() -> str:
     return (
-        "- **Latency** is wall-clock time per query. Lower is better, but compare alongside quality.\n"
-        "- **Tokens / Cost** capture LLM expenditure. Multi-agent typically spends more.\n"
+        "- **Latency** is wall-clock time per query. "
+        "Lower is better, but compare alongside quality.\n"
+        "- **Tokens / Cost** capture LLM expenditure. "
+        "Multi-agent typically spends more.\n"
         "- **Citation cov.** = fraction of provided sources that the final answer cites.\n"
-        "- **Iters** counts supervisor decisions; check it stays under the configured `max_iterations`.\n"
+        "- **Iters** counts supervisor decisions; "
+        "check it stays under the configured `max_iterations`.\n"
         "- Add a `quality_score` (0–10) from peer review before finalising deliverables."
     )
 

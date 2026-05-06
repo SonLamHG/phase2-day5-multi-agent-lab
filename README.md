@@ -155,12 +155,13 @@ Ghi `reports/benchmark_report.md` và `reports/traces/*.json`.
 
 ## Deliverables
 
-Học viên nộp:
-
-1. GitHub repo cá nhân.
-2. Screenshot trace hoặc link trace.
-3. `reports/benchmark_report.md` so sánh single vs multi-agent.
-4. Một đoạn giải thích failure mode và cách fix.
+| # | Item | Path |
+|---|---|---|
+| 1 | GitHub repo cá nhân | this repo |
+| 2 | Trace screenshot / link | LangSmith project `multi-agent-research-lab` + JSON ở `reports/traces/*.json` (gitignored) |
+| 3 | Benchmark single vs multi-agent | [`reports/benchmark_report.md`](reports/benchmark_report.md) |
+| 4 | Failure mode + cách fix | [`reports/failure_modes.md`](reports/failure_modes.md) |
+| 5 | Exit ticket (multi-agent yes/no) | [`reports/exit_ticket.md`](reports/exit_ticket.md) |
 
 ## References
 

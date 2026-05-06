@@ -12,4 +12,6 @@ reports/*.json
 reports/traces/
 reports/*.md
 !reports/benchmark_report.md
+!reports/failure_modes.md
+!reports/exit_ticket.md
 !.gitkeep
